@@ -2,66 +2,77 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>AI Audio Visualizer v3</title>
+    <title>AI Audio & Gesture Master</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         :root {
             --primary: #00ff88;
-            --bg: #000000;
-            --glass: rgba(20, 20, 20, 0.7);
-            --border: rgba(255, 255, 255, 0.15);
+            --bg: #050505;
+            --glass: rgba(20, 20, 20, 0.65);
+            --border: rgba(255, 255, 255, 0.1);
         }
 
         body {
-            margin: 0;
-            overflow: hidden;
-            background-color: var(--bg);
-            font-family: 'Segoe UI', sans-serif;
-            color: white;
-            user-select: none;
+            margin: 0; overflow: hidden; background-color: var(--bg);
+            font-family: 'Segoe UI', sans-serif; color: white; user-select: none;
         }
 
         #canvas-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
             background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
         }
 
+        /* --- UI PANEL --- */
         .ui-panel {
             position: absolute; top: 20px; right: 20px; width: 260px;
             padding: 20px; background: var(--glass);
             backdrop-filter: blur(12px); border-radius: 16px;
             border: 1px solid var(--border); z-index: 10;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        h2 { margin: 0 0 15px 0; font-size: 14px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-
-        .shape-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+        h2 { margin: 0 0 15px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); padding-bottom: 10px; color: #eee; }
 
         button {
             background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border);
-            color: #ccc; padding: 8px; border-radius: 6px; cursor: pointer;
-            font-size: 11px; text-transform: uppercase; width: 100%;
+            color: #ccc; padding: 10px; border-radius: 8px; cursor: pointer;
+            font-size: 11px; text-transform: uppercase; width: 100%; margin-bottom: 8px;
+            transition: all 0.2s;
         }
-        button:hover { background: rgba(255, 255, 255, 0.15); }
-        button.active { background: var(--primary); color: #000; font-weight: bold; }
+        button:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+        button.active { background: var(--primary); color: #000; font-weight: bold; box-shadow: 0 0 15px rgba(0,255,136,0.2); }
 
-        #mic-btn { margin-bottom: 15px; border-color: #ff3333; color: #ff3333; }
-        #mic-btn.mic-active { border-color: var(--primary); color: var(--primary); animation: pulse 2s infinite; }
+        #mic-btn { border-color: #ff4444; color: #ff4444; margin-bottom: 20px; }
+        #mic-btn.mic-active { border-color: var(--primary); color: var(--primary); animation: glow 2s infinite; }
+        @keyframes glow { 0% {box-shadow: 0 0 0 0 rgba(0,255,136,0.4);} 70% {box-shadow: 0 0 0 10px transparent;} 100% {box-shadow: 0 0 0 0 transparent;} }
 
-        @keyframes pulse { 0% {box-shadow: 0 0 0 0 rgba(0,255,136,0.4);} 70% {box-shadow: 0 0 0 10px rgba(0,255,136,0);} 100% {box-shadow: 0 0 0 0 rgba(0,255,136,0);} }
+        .shape-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
 
-        #loading {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 100; font-size: 16px; background: rgba(0,0,0,0.8);
-            padding: 20px; border-radius: 10px; border: 1px solid var(--primary); text-align: center;
+        /* --- STATUS BAR --- */
+        #status-bar {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 10; background: rgba(0,0,0,0.8); padding: 8px 20px;
+            border-radius: 50px; border: 1px solid var(--border);
+            display: flex; align-items: center; gap: 10px; font-size: 12px;
         }
-        
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+        .dot.active { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
+
+        /* --- PREVIEW & LOADER --- */
         #webcam-preview {
             position: absolute; bottom: 20px; left: 20px; width: 120px; height: 90px;
-            background: #000; border-radius: 8px; opacity: 0.5; z-index: 10; transform: scaleX(-1);
+            background: #000; border-radius: 10px; opacity: 0.6; z-index: 10;
+            transform: scaleX(-1); border: 1px solid var(--border);
+        }
+        #loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 100; font-size: 14px; background: rgba(0,0,0,0.9);
+            padding: 20px 40px; border-radius: 12px; border: 1px solid var(--primary);
+            text-align: center; text-transform: uppercase; letter-spacing: 2px;
         }
     </style>
-    
+
+    <!-- LIBS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
@@ -69,31 +80,63 @@
 </head>
 <body>
 
-    <div id="loading">Загрузка системы...<br><small>Разрешите доступ к камере</small></div>
+    <div id="loading">Загрузка AI...<br><span style="font-size:10px; opacity:0.7; text-transform:none">Разрешите камеру</span></div>
+    
     <div id="canvas-container"></div>
     <video id="webcam-preview" playsinline muted></video>
+    
+    <div id="status-bar">
+        <div class="dot" id="hand-dot"></div>
+        <span id="status-text">Ожидание руки...</span>
+    </div>
 
     <div class="ui-panel">
-        <h2>Управление</h2>
-        <button id="mic-btn" onclick="startAudio()">🎤 Включить Реакцию на Звук</button>
+        <h2>Центр управления</h2>
         
+        <button id="mic-btn" onclick="toggleAudio()">🎤 Включить Музыку</button>
+
         <div class="shape-grid">
             <button onclick="setShape('sphere')" class="active">Сфера</button>
             <button onclick="setShape('heart')">Сердце</button>
             <button onclick="setShape('saturn')">Сатурн</button>
             <button onclick="setShape('dna')">ДНК</button>
         </div>
-        <input type="color" id="colorPicker" value="#00ff88" style="width:100%">
+        
+        <input type="color" id="colorPicker" value="#00ff88" style="width:100%; border:none; height:30px; background:none; cursor:pointer">
+        
+        <div style="margin-top:15px; font-size:10px; color:#aaa; line-height:1.6">
+            🤏 <b>Щипок:</b> Приблизить<br>
+            🕹️ <b>Рука вбок:</b> Вращение (Джойстик)<br>
+            👋 <b>Наклон:</b> Наклон фигуры
+        </div>
     </div>
 
     <script>
-        // --- ЗАЩИТА ОТ ЗАВИСАНИЯ ---
-        setTimeout(() => {
-            const l = document.getElementById('loading');
-            if(l && l.style.display !== 'none') l.style.display = 'none';
-        }, 5000);
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            particleCount: 18000,
+            smooth: 0.08,        // Плавность (меньше = плавнее)
+            rotSpeed: 0.06,      // Чувствительность вращения
+            zoomSensitivity: 9.0 // Чувствительность зума
+        };
 
-        // --- 1. SETUP THREE.JS ---
+        // --- STATE MANAGEMENT ---
+        const state = {
+            scale: 1.0,
+            rotVelX: 0, rotVelY: 0, // Скорости вращения
+            tilt: 0,
+            beat: 0,                // Сила баса (0.0 - 1.0)
+            baseColor: new THREE.Color(0x00ff88)
+        };
+
+        const target = {
+            scale: 1.0,
+            x: 0, y: 0, // Позиция джойстика (-1 ... 1)
+            tilt: 0,
+            detected: false
+        };
+
+        // --- 1. THREE.JS INIT ---
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x000000, 0.02);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -103,82 +146,36 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // --- 2. PARTICLES ---
-        const COUNT = 18000;
-        const geo = new THREE.BufferGeometry();
-        const pos = new Float32Array(COUNT * 3);
-        for(let i=0; i<COUNT*3; i++) pos[i] = (Math.random()-0.5)*15;
-        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        // --- 2. PARTICLES & TEXTURE ---
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(CONFIG.particleCount * 3);
+        const targetPositions = new Float32Array(CONFIG.particleCount * 3);
         
+        // Init random positions
+        for(let i=0; i<CONFIG.particleCount*3; i++) positions[i] = (Math.random()-0.5)*20;
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        // Create Glow Texture
         const cvs = document.createElement('canvas'); cvs.width=32; cvs.height=32;
         const ctx = cvs.getContext('2d');
         const grd = ctx.createRadialGradient(16,16,0,16,16,16);
-        grd.addColorStop(0,'white'); grd.addColorStop(1,'transparent');
+        grd.addColorStop(0,'rgba(255,255,255,1)'); 
+        grd.addColorStop(0.4,'rgba(255,255,255,0.2)'); 
+        grd.addColorStop(1,'transparent');
         ctx.fillStyle = grd; ctx.fillRect(0,0,32,32);
-        const tex = new THREE.Texture(cvs); tex.needsUpdate = true;
+        const texture = new THREE.Texture(cvs); texture.needsUpdate = true;
 
-        const mat = new THREE.PointsMaterial({
-            size: 0.09, map: tex, transparent: true, 
-            opacity: 0.8, blending: THREE.AdditiveBlending, 
-            depthWrite: false, color: 0x00ff88
+        const material = new THREE.PointsMaterial({
+            size: 0.08, map: texture, transparent: true, opacity: 0.8,
+            blending: THREE.AdditiveBlending, depthWrite: false, color: state.baseColor
         });
-        const particles = new THREE.Points(geo, mat);
+
+        const particles = new THREE.Points(geometry, material);
         scene.add(particles);
 
-        // --- 3. STATE ---
-        let targetPositions = new Float32Array(COUNT*3);
-        const state = { scale: 1, rx: 0, ry: 0, tilt: 0, beat: 0 };
-        const target = { scale: 1, x: 0, y: 0, tilt: 0, detected: false };
-
-        // --- 4. AUDIO SYSTEM (ROBUST FIX) ---
-        let analyser, dataArray;
-        let audioContext;
-        let isAudioOn = false;
-
-        async function startAudio() {
-            if(isAudioOn) return;
-            const btn = document.getElementById('mic-btn');
-
-            try {
-                // 1. Создаем контекст (поддержка Safari/Chrome)
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                audioContext = new AudioContext();
-
-                // 2. ВАЖНО: Если контекст "спит", будим его
-                if (audioContext.state === 'suspended') {
-                    await audioContext.resume();
-                }
-
-                // 3. Запрашиваем доступ
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-                // 4. Подключаем анализатор
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 128; // Быстрая реакция
-                const source = audioContext.createMediaStreamSource(stream);
-                source.connect(analyser);
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-                // 5. Успех
-                isAudioOn = true;
-                btn.innerText = "🔊 Работает";
-                btn.classList.add('mic-active');
-
-            } catch (err) {
-                console.error(err);
-                if (err.name === 'NotAllowedError') {
-                    alert("Ошибка: Доступ к микрофону запрещен.\n\nНажмите на значок замка 🔒 в строке браузера и разрешите доступ к микрофону, затем обновите страницу.");
-                } else if (err.name === 'NotFoundError') {
-                    alert("Ошибка: Микрофон не найден.");
-                } else {
-                    alert("Ошибка аудио: " + err.message);
-                }
-            }
-        }
-
-        // --- 5. SHAPE LOGIC ---
+        // --- 3. SHAPE LOGIC ---
         function setShape(s) {
-            for(let i=0; i<COUNT; i++) {
+            for(let i=0; i<CONFIG.particleCount; i++) {
                 let x,y,z, r1=Math.random(), r2=Math.random();
                 if(s==='sphere'){
                     const t=2*Math.PI*r1, p=Math.acos(2*r2-1), r=3.5;
@@ -190,14 +187,14 @@
                     z=5*Math.cos(p)*Math.sin(t);
                     x*=0.18; y*=0.18; z*=0.18;
                 } else if(s==='saturn') {
-                    const ang=r1*6.28, dist=i<COUNT*0.6 ? 2.8 : 4+r2*3;
-                    if(i<COUNT*0.6) {
+                    const ang=r1*6.28, dist=i<CONFIG.particleCount*0.65 ? 2.8 : 4+r2*3;
+                    if(i<CONFIG.particleCount*0.65) {
                         const ph=Math.acos(2*r2-1);
                         x=dist*Math.sin(ph)*Math.cos(ang); y=dist*Math.sin(ph)*Math.sin(ang); z=dist*Math.cos(ph);
                     } else { x=Math.cos(ang)*dist; y=(r1-0.5)*0.2; z=Math.sin(ang)*dist; }
                 } else { // DNA
                      const ang = (r1 * 3 * 6.28) + (i%2 * 3.14);
-                     x=Math.cos(ang)*2 + (r2-0.5); y=(r1-0.5)*10; z=Math.sin(ang)*2 + (r2-0.5);
+                     x=Math.cos(ang)*2+(r2-0.5)*0.5; y=(r1-0.5)*10; z=Math.sin(ang)*2+(r2-0.5)*0.5;
                 }
                 targetPositions[i*3]=x; targetPositions[i*3+1]=y; targetPositions[i*3+2]=z;
             }
@@ -206,99 +203,166 @@
         }
         setShape('sphere');
 
-        // --- 6. ANIMATION & LOGIC ---
-        function lerp(s,e,a){return (1-a)*s+a*e;}
+        // --- 4. AUDIO SYSTEM ---
+        let audioCtx, analyser, dataArray, isAudioOn = false;
 
-        let currentColor = new THREE.Color(0x00ff88);
-        document.getElementById('colorPicker').addEventListener('input', (e)=>{
-            currentColor.set(e.target.value);
-        });
+        async function toggleAudio() {
+            const btn = document.getElementById('mic-btn');
+            if(isAudioOn) return; // Simple toggle off not implemented to keep clean
+            
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+                if(audioCtx.state === 'suspended') await audioCtx.resume();
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 128;
+                audioCtx.createMediaStreamSource(stream).connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                isAudioOn = true;
+                btn.innerText = "🔊 Активно";
+                btn.classList.add('mic-active');
+            } catch(e) {
+                alert("Ошибка микрофона: " + e.message);
+            }
+        }
+
+        // --- 5. ANIMATION LOOP ---
+        function lerp(start, end, amt) { return (1-amt)*start+amt*end; }
 
         function animate() {
             requestAnimationFrame(animate);
-            
-            // 1. Move Particles
-            const p = particles.geometry.attributes.position.array;
-            for(let i=0; i<COUNT*3; i++) p[i] += (targetPositions[i]-p[i])*0.05;
-            particles.geometry.attributes.position.needsUpdate = true;
 
-            // 2. Audio Analysis
-            let beat = 0;
+            // A. Audio Processing
+            let beatPulse = 0;
             if(isAudioOn && analyser) {
                 analyser.getByteFrequencyData(dataArray);
-                // Bass is usually first few bins
-                let sum=0; for(let i=0; i<10; i++) sum+=dataArray[i];
-                beat = (sum/10) / 255; // 0 to 1
-                state.beat = lerp(state.beat, beat, 0.3); // Smooth beat
+                let sum = 0; 
+                for(let i=0; i<8; i++) sum += dataArray[i]; // Bass frequencies
+                state.beat = lerp(state.beat, (sum/8)/255, 0.2);
+                beatPulse = state.beat * 0.5; // Intensity multiplier
+                
+                // Beat Flash Color
+                if(state.beat > 0.15) {
+                    const h = state.baseColor.getHSL({});
+                    particles.material.color.setHSL(h.h, h.s, Math.min(1, h.l + state.beat*0.7));
+                } else {
+                    particles.material.color.lerp(state.baseColor, 0.1);
+                }
             }
 
-            // 3. Color Beat Logic
-            if(state.beat > 0.15) {
-                const h = currentColor.getHSL({});
-                // Make it brighter
-                particles.material.color.setHSL(h.h, h.s, Math.min(1, h.l + state.beat*0.6));
-            } else {
-                particles.material.color.lerp(currentColor, 0.1);
+            // B. Particle Morphing
+            const pos = particles.geometry.attributes.position.array;
+            for(let i=0; i<CONFIG.particleCount*3; i++) {
+                pos[i] += (targetPositions[i] - pos[i]) * 0.05;
             }
+            particles.geometry.attributes.position.needsUpdate = true;
 
-            // 4. Transform Logic
+            // C. Gesture Physics (Joystick & Zoom)
             if(target.detected) {
-                state.scale = lerp(state.scale, target.scale, 0.1);
-                state.rx = lerp(state.rx, target.y * 0.05, 0.1);
-                state.ry = lerp(state.ry, target.x * 0.05, 0.1);
-                state.tilt = lerp(state.tilt, -target.tilt, 0.1);
+                // 1. Scale (Inverted Pinch)
+                state.scale = lerp(state.scale, target.scale, CONFIG.smooth);
+                
+                // 2. Rotation (Velocity based - Joystick)
+                // If hand is far from center (>0.15), add to velocity
+                const targetVelY = (Math.abs(target.x) > 0.15) ? target.x * CONFIG.rotSpeed : 0;
+                const targetVelX = (Math.abs(target.y) > 0.15) ? target.y * CONFIG.rotSpeed : 0;
+                
+                state.rotVelY = lerp(state.rotVelY, targetVelY, CONFIG.smooth);
+                state.rotVelX = lerp(state.rotVelX, targetVelX, CONFIG.smooth);
+                
+                // 3. Tilt (Direct mapping)
+                state.tilt = lerp(state.tilt, -target.tilt, CONFIG.smooth);
             } else {
-                state.scale = lerp(state.scale, 1, 0.05);
-                state.rx = lerp(state.rx, 0, 0.05);
-                state.ry = lerp(state.ry, 0.002, 0.05);
+                // Idle State
+                state.scale = lerp(state.scale, 1.0, 0.05);
+                state.rotVelY = lerp(state.rotVelY, 0.002, 0.05); // Slow idle spin
+                state.rotVelX = lerp(state.rotVelX, 0, 0.05);
                 state.tilt = lerp(state.tilt, 0, 0.05);
+                // Return color to base
+                if(!isAudioOn) particles.material.color.lerp(state.baseColor, 0.1);
             }
 
-            // Combine Hand Scale + Audio Pulse
-            const finalScale = state.scale + (state.beat * 0.5); 
-            
+            // D. Apply Transforms (Gestures + Audio Pulse)
+            const finalScale = state.scale + beatPulse;
             particles.scale.set(finalScale, finalScale, finalScale);
-            particles.rotation.x += state.rx;
-            particles.rotation.y += state.ry;
+            particles.rotation.y += state.rotVelY;
+            particles.rotation.x += state.rotVelX;
             particles.rotation.z = state.tilt;
 
             renderer.render(scene, camera);
         }
         animate();
 
-        // --- 7. CAMERA SETUP ---
-        const vid = document.getElementById('webcam-preview');
-        
+        // --- 6. HAND TRACKING ---
+        const videoElement = document.getElementById('webcam-preview');
+        const statusText = document.getElementById('status-text');
+        const handDot = document.getElementById('hand-dot');
+
         function onResults(results) {
-            document.getElementById('loading').style.display = 'none';
-            if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            // Hide loader once
+            const loader = document.getElementById('loading');
+            if(loader) loader.style.display = 'none';
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 target.detected = true;
+                statusText.innerText = "Рука найдена";
+                handDot.classList.add('active');
+
                 const lm = results.multiHandLandmarks[0];
-                const dist = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
-                target.scale = Math.max(0.5, Math.min(2.8 - dist*9, 3));
-                target.x = ((lm[0].x + lm[9].x)/2 - 0.5)*2;
-                target.y = ((lm[0].y + lm[9].y)/2 - 0.5)*2;
-                target.tilt = Math.atan2(lm[9].y-lm[0].y, lm[9].x-lm[0].x) + Math.PI/2;
+
+                // 1. PINCH (Zoom) logic
+                const dist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
+                // Close pinch (0.02) -> Scale 2.5
+                // Open hand (0.2)   -> Scale 0.5
+                target.scale = Math.max(0.5, Math.min(2.8 - (dist * CONFIG.zoomSensitivity), 3.0));
+
+                // 2. JOYSTICK (Position) logic
+                // Center is 0.5. Range -1 to 1.
+                // Flip X because webcam is mirrored visually
+                target.x = ((lm[0].x + lm[9].x) / 2 - 0.5) * 2; 
+                target.y = ((lm[0].y + lm[9].y) / 2 - 0.5) * 2;
+
+                // 3. TILT logic
+                target.tilt = Math.atan2(lm[9].y - lm[0].y, lm[9].x - lm[0].x) + Math.PI/2;
+
             } else {
                 target.detected = false;
+                statusText.innerText = "Покажите руку";
+                handDot.classList.remove('active');
             }
         }
 
-        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({maxNumHands:1, minDetectionConfidence:0.5, minTrackingConfidence:0.5});
-        hands.onResults(onResults);
+        // Initialize MediaPipe
+        try {
+            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            hands.onResults(onResults);
 
-        const cameraUtils = new Camera(vid, {
-            onFrame: async () => { await hands.send({image: vid}); },
-            width: 320, height: 240
+            const cameraUtils = new Camera(videoElement, {
+                onFrame: async () => { await hands.send({image: videoElement}); },
+                width: 320, height: 240
+            });
+            cameraUtils.start();
+        } catch(e) {
+            alert("Ошибка запуска камеры: " + e);
+        }
+
+        // Utils
+        document.getElementById('colorPicker').addEventListener('input', (e) => {
+            state.baseColor.set(e.target.value);
         });
-        cameraUtils.start();
-
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth/window.innerHeight;
+            camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        // Fail-safe timeout for loader
+        setTimeout(() => { if(document.getElementById('loading')) document.getElementById('loading').style.display='none'; }, 4000);
+
     </script>
 </body>
 </html>
