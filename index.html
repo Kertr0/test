@@ -2,13 +2,14 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>AI Audio & Gestures Final</title>
+    <title>AI Control Center</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         :root {
             --primary: #00ff88;
-            --glass: rgba(15, 15, 15, 0.8);
+            --glass: rgba(15, 15, 15, 0.85);
             --border: rgba(255, 255, 255, 0.15);
+            --danger: #ff4444;
         }
         body { 
             margin: 0; overflow: hidden; background: #000; 
@@ -22,57 +23,68 @@
             z-index: 999; display: flex; flex-direction: column; 
             align-items: center; justify-content: center;
         }
-        
-        h1 { margin-bottom: 20px; font-weight: 300; letter-spacing: 2px; text-transform: uppercase; }
-        
         #start-btn {
             padding: 18px 50px; font-size: 16px; background: var(--primary); color: #000;
             border: none; border-radius: 50px; cursor: pointer; font-weight: 800;
-            box-shadow: 0 0 30px rgba(0, 255, 136, 0.4); transition: transform 0.2s, box-shadow 0.2s;
-            text-transform: uppercase; letter-spacing: 1px;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.4); text-transform: uppercase;
+            transition: 0.2s;
         }
-        #start-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px rgba(0, 255, 136, 0.6); }
+        #start-btn:hover { transform: scale(1.05); }
 
-        /* --- ОСНОВНОЙ UI --- */
+        /* --- UI PANEL --- */
         #canvas-container { position: absolute; top:0; left:0; width:100%; height:100%; z-index: 1; }
         
         .ui-panel {
-            position: absolute; top: 20px; right: 20px; width: 250px;
+            position: absolute; top: 20px; right: 20px; width: 260px;
             background: var(--glass); backdrop-filter: blur(15px);
             padding: 20px; border-radius: 16px; border: 1px solid var(--border);
             z-index: 10; display: none; /* Скрыто до старта */
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
         
-        .shape-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 15px 0; }
+        h3 { margin: 0 0 15px 0; font-size: 12px; color: #888; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
+
+        /* Toggles Grid */
+        .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         
+        button.toggle-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            color: #ccc; padding: 12px; border-radius: 8px; cursor: pointer;
+            font-size: 11px; text-transform: uppercase; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+            transition: all 0.2s;
+        }
+        button.toggle-btn:hover { background: rgba(255,255,255,0.15); }
+        
+        /* Active States */
+        button.toggle-btn.active { background: var(--primary); color: #000; border-color: var(--primary); }
+        button.toggle-btn.off { color: #888; border-color: #444; text-decoration: line-through; }
+
+        /* Shape Buttons */
+        .shape-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
         button.shape-btn {
             background: rgba(255,255,255,0.05); border: 1px solid var(--border);
-            color: #ccc; padding: 10px; border-radius: 8px; cursor: pointer;
-            transition: all 0.2s; font-size: 12px; text-transform: uppercase;
+            color: #ccc; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px;
         }
-        button.shape-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
-        button.shape-btn.active { 
-            background: var(--primary); color: #000; font-weight: bold; 
-            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3); border-color: var(--primary);
-        }
+        button.shape-btn.active { background: var(--primary); color: #000; font-weight: bold; }
 
+        /* Status Bar */
         #status-bar {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); padding: 8px 25px; border-radius: 30px;
-            font-size: 13px; border: 1px solid var(--border);
-            z-index: 10; display: none; color: #aaa;
+            background: rgba(0,0,0,0.85); padding: 10px 30px; border-radius: 30px;
+            font-size: 14px; border: 1px solid var(--border); font-weight: bold;
+            z-index: 10; display: none; color: #aaa; letter-spacing: 1px;
+            transition: color 0.3s, border-color 0.3s;
         }
-        #status-bar.active { color: var(--primary); border-color: var(--primary); }
+        #status-bar.detected { color: var(--primary); border-color: var(--primary); box-shadow: 0 0 15px rgba(0,255,136,0.2); }
         
         #webcam-preview {
             position: absolute; bottom: 20px; left: 20px; width: 140px; height: 105px;
             background: #000; border: 1px solid var(--border); z-index: 10;
             border-radius: 10px; transform: scaleX(-1); opacity: 0.7; display: none;
+            transition: opacity 0.3s;
         }
     </style>
 
-    <!-- Библиотеки -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
@@ -80,25 +92,25 @@
 </head>
 <body>
 
-    <!-- 1. ЭКРАН ЗАПУСКА -->
     <div id="start-screen">
-        <h1>Particle System AI</h1>
-        <button id="start-btn" onclick="startSystem()">Запустить систему</button>
-        <p style="color: #666; font-size: 12px; margin-top: 20px;">
-            Включает Камеру (Жесты) и Микрофон (Пульсация)
-        </p>
+        <h1>AI SYSTEM</h1>
+        <button id="start-btn" onclick="startSystem()">ЗАПУСТИТЬ</button>
     </div>
 
-    <!-- 2. ОСНОВНОЙ КОНТЕНТ -->
     <div id="canvas-container"></div>
     <video id="webcam-preview" playsinline muted></video>
-    <div id="status-bar">Система активна. Покажите руку.</div>
+    <div id="status-bar">ОЖИДАНИЕ...</div>
 
     <div class="ui-panel" id="ui-panel">
-        <h3 style="margin:0 0 15px 0; font-size:12px; color:#888; text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
-            Панель управления
-        </h3>
+        <h3>Настройки</h3>
         
+        <!-- Новые кнопки управления -->
+        <div class="toggle-grid">
+            <button id="btn-mic" class="toggle-btn active" onclick="toggleMic()">🎤 Микрофон</button>
+            <button id="btn-cam" class="toggle-btn active" onclick="toggleCam()">📷 Видео</button>
+        </div>
+
+        <h3>Форма</h3>
         <div class="shape-grid">
             <button class="shape-btn active" onclick="setShape('sphere')">Сфера</button>
             <button class="shape-btn" onclick="setShape('heart')">Сердце</button>
@@ -106,103 +118,113 @@
             <button class="shape-btn" onclick="setShape('dna')">ДНК</button>
         </div>
         
-        <div style="margin-bottom: 15px;">
-            <label style="font-size:11px; color:#666; display:block; margin-bottom:5px;">ЦВЕТ ЧАСТИЦ</label>
-            <input type="color" id="colorPicker" value="#00ff88" style="width:100%; height:35px; border:none; background:none; cursor:pointer;">
+        <div style="margin-bottom: 10px;">
+            <input type="color" id="colorPicker" value="#00ff88" style="width:100%; height:30px; border:none; background:none; cursor:pointer;">
         </div>
         
-        <div style="font-size:11px; color:#888; line-height:1.6; background: rgba(0,0,0,0.3); padding:10px; border-radius:8px;">
-            🤏 <b>Зум:</b> Свести пальцы<br>
-            🕹️ <b>Вращение:</b> Двигать рукой<br>
-            🔊 <b>Аудио:</b> Бас меняет масштаб
+        <div style="font-size:10px; color:#666; margin-top:10px;">
+            * Скрой видео, чтобы видеть частицы целиком.
         </div>
     </div>
 
     <script>
-        // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
-        let scene, camera, renderer, particles;
-        let audioCtx, analyser, dataArray;
-        let isAudioEnabled = false;
-        
-        // Настройки
-        const CONFIG = {
-            particleCount: 18000,
-            baseSize: 0.08,
-            smooth: 0.08
-        };
-
-        // Состояние системы
+        // --- CONFIG ---
+        const CONFIG = { particleCount: 18000, baseSize: 0.08, smooth: 0.08 };
         const STATE = {
-            scale: 1,      // Текущий масштаб (от рук)
-            audioPulse: 0, // Добавочный масштаб (от звука)
-            rotX: 0, rotY: 0, tilt: 0,
+            scale: 1, audioPulse: 0, rotX: 0, rotY: 0, tilt: 0,
             baseColor: new THREE.Color(0x00ff88)
         };
+        const TARGET = { scale: 1, x: 0, y: 0, tilt: 0, detected: false };
+        
+        let scene, camera, renderer, particles;
+        let audioCtx, analyser, dataArray;
+        let isAudioAllowed = false; // Разрешено ли пользователем
 
-        // Целевые значения (от MediaPipe)
-        const TARGET = {
-            scale: 1, x: 0, y: 0, tilt: 0, detected: false
-        };
-
-        // --- 1. ЗАПУСК (START) ---
+        // --- 1. СТАРТ ---
         async function startSystem() {
-            const btn = document.getElementById('start-btn');
-            btn.innerText = "ЗАГРУЗКА...";
+            document.getElementById('start-btn').innerText = "ЗАГРУЗКА...";
             
-            // A. Инициализация Three.js
             initThree();
 
-            // B. Инициализация Аудио (Требует жеста пользователя)
+            // Аудио
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 audioCtx = new AudioContext();
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256; // Для хорошего баса
+                analyser.fftSize = 256;
                 const source = audioCtx.createMediaStreamSource(stream);
                 source.connect(analyser);
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
-                isAudioEnabled = true;
+                isAudioAllowed = true;
             } catch(e) {
-                console.warn("Микрофон недоступен:", e);
-                alert("Микрофон не включен. Визуализация звука не будет работать, но жесты останутся.");
+                console.warn("Микрофон недоступен");
+                document.getElementById('btn-mic').classList.remove('active');
+                document.getElementById('btn-mic').classList.add('off');
+                document.getElementById('btn-mic').innerText = "Без звука";
             }
 
-            // C. Инициализация MediaPipe
             await initMediaPipe();
 
-            // D. Скрыть экран загрузки
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('ui-panel').style.display = 'block';
             document.getElementById('webcam-preview').style.display = 'block';
             document.getElementById('status-bar').style.display = 'block';
         }
 
-        // --- 2. THREE.JS (Рендер) ---
+        // --- 2. НОВЫЕ ФУНКЦИИ УПРАВЛЕНИЯ ---
+        
+        function toggleMic() {
+            if(!audioCtx) return;
+            const btn = document.getElementById('btn-mic');
+            
+            if(audioCtx.state === 'running') {
+                audioCtx.suspend();
+                btn.classList.remove('active');
+                btn.classList.add('off');
+                STATE.audioPulse = 0; // Сброс пульсации
+            } else {
+                audioCtx.resume();
+                btn.classList.add('active');
+                btn.classList.remove('off');
+            }
+        }
+
+        function toggleCam() {
+            const vid = document.getElementById('webcam-preview');
+            const btn = document.getElementById('btn-cam');
+            
+            // Мы меняем opacity, чтобы MediaPipe продолжал получать кадры
+            if(vid.style.opacity === '0') {
+                vid.style.opacity = '0.7';
+                btn.classList.add('active');
+                btn.classList.remove('off');
+            } else {
+                vid.style.opacity = '0';
+                btn.classList.remove('active');
+                btn.classList.add('off');
+            }
+        }
+
+        // --- 3. THREE.JS ---
         let targetPositions = new Float32Array(CONFIG.particleCount * 3);
 
         function initThree() {
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x000000, 0.02); // Глубина
-
+            scene.fog = new THREE.FogExp2(0x000000, 0.02);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             camera.position.z = 8;
-
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-            // Текстура "Свечение"
-            const canvas = document.createElement('canvas'); canvas.width=32; canvas.height=32;
-            const ctx = canvas.getContext('2d');
+            const cvs = document.createElement('canvas'); cvs.width=32; cvs.height=32;
+            const ctx = cvs.getContext('2d');
             const grad = ctx.createRadialGradient(16,16,0,16,16,16);
-            grad.addColorStop(0,'rgba(255,255,255,1)');
-            grad.addColorStop(0.4,'rgba(255,255,255,0.2)');
-            grad.addColorStop(1,'transparent');
+            grad.addColorStop(0,'white'); grad.addColorStop(1,'transparent');
             ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
-            const tex = new THREE.Texture(canvas); tex.needsUpdate = true;
+            const tex = new THREE.Texture(cvs); tex.needsUpdate = true;
 
-            // Частицы
             const geo = new THREE.BufferGeometry();
             const pos = new Float32Array(CONFIG.particleCount * 3);
             for(let i=0; i<CONFIG.particleCount*3; i++) pos[i] = (Math.random()-0.5)*20;
@@ -215,175 +237,119 @@
 
             particles = new THREE.Points(geo, mat);
             scene.add(particles);
-
             setShape('sphere');
             animate();
         }
 
-        // --- 3. АНИМАЦИЯ И ЛОГИКА ---
-        function lerp(start, end, amt) { return (1-amt)*start + amt*end; }
+        function lerp(s, e, a) { return (1-a)*s + a*e; }
 
         function animate() {
             requestAnimationFrame(animate);
 
-            // --- A. АНАЛИЗ ЗВУКА ---
-            if (isAudioEnabled && analyser) {
+            // Audio Logic
+            if (isAudioAllowed && audioCtx.state === 'running' && analyser) {
                 analyser.getByteFrequencyData(dataArray);
-                
-                // Считаем среднюю громкость низких частот (Бас)
-                // dataArray имеет 128 ячеек. Басы - это первые 10-15.
-                let bassSum = 0;
-                for(let i = 0; i < 10; i++) bassSum += dataArray[i];
-                
-                // Нормализуем (0.0 ... 1.0)
-                const bassLevel = (bassSum / 10) / 255;
-                
-                // Сглаживание пульсации
-                STATE.audioPulse = lerp(STATE.audioPulse, bassLevel, 0.2);
+                let sum = 0; for(let i=0; i<8; i++) sum+=dataArray[i];
+                const lvl = (sum/8)/255;
+                STATE.audioPulse = lerp(STATE.audioPulse, lvl, 0.2);
 
-                // Эффект вспышки цвета на сильных ударах
-                if (STATE.audioPulse > 0.4) { // Порог удара
+                if(STATE.audioPulse > 0.35) {
                     const h = STATE.baseColor.getHSL({});
-                    // Делаем цвет почти белым при ударе
-                    particles.material.color.setHSL(h.h, h.s, Math.min(1.0, 0.5 + STATE.audioPulse));
+                    particles.material.color.setHSL(h.h, h.s, Math.min(1, 0.5 + STATE.audioPulse));
                 } else {
-                    // Возвращаем к базовому цвету
                     particles.material.color.lerp(STATE.baseColor, 0.1);
                 }
             }
 
-            // --- B. ОБРАБОТКА ЖЕСТОВ (MediaPipe) ---
+            // Gesture Logic
             if (TARGET.detected) {
-                // Плавное приближение к целям от руки
                 STATE.scale = lerp(STATE.scale, TARGET.scale, CONFIG.smooth);
-                
-                // Вращение (Джойстик)
-                // Если рука смещена от центра больше чем на 0.1, крутим
-                const vx = (Math.abs(TARGET.x) > 0.1) ? TARGET.x * 0.05 : 0;
-                const vy = (Math.abs(TARGET.y) > 0.1) ? TARGET.y * 0.05 : 0;
+                const vx = (Math.abs(TARGET.x)>0.1) ? TARGET.x*0.05 : 0;
+                const vy = (Math.abs(TARGET.y)>0.1) ? TARGET.y*0.05 : 0;
                 STATE.rotY = lerp(STATE.rotY, vx, CONFIG.smooth);
                 STATE.rotX = lerp(STATE.rotX, vy, CONFIG.smooth);
-                
                 STATE.tilt = lerp(STATE.tilt, -TARGET.tilt, CONFIG.smooth);
             } else {
-                // Режим простоя
-                STATE.scale = lerp(STATE.scale, 1.0, 0.05);
-                STATE.rotY = lerp(STATE.rotY, 0.002, 0.05); // Медленное вращение
+                STATE.scale = lerp(STATE.scale, 1, 0.05);
+                STATE.rotY = lerp(STATE.rotY, 0.002, 0.05);
                 STATE.rotX = lerp(STATE.rotX, 0, 0.05);
                 STATE.tilt = lerp(STATE.tilt, 0, 0.05);
             }
 
-            // --- C. ПРИМЕНЕНИЕ ТРАНСФОРМАЦИЙ ---
-            
-            // Итоговый масштаб = Масштаб от руки + Пульсация звука
-            // Умножаем audioPulse на 0.5, чтобы пульсация не была слишком огромной
             const totalScale = STATE.scale + (STATE.audioPulse * 0.5);
-            
             particles.scale.set(totalScale, totalScale, totalScale);
             particles.rotation.y += STATE.rotY;
             particles.rotation.x += STATE.rotX;
             particles.rotation.z = STATE.tilt;
 
-            // Морфинг (движение точек к форме)
             const p = particles.geometry.attributes.position.array;
-            for(let i=0; i<CONFIG.particleCount*3; i++) {
-                p[i] += (targetPositions[i] - p[i]) * 0.08;
-            }
+            for(let i=0; i<CONFIG.particleCount*3; i++) p[i] += (targetPositions[i]-p[i])*0.08;
             particles.geometry.attributes.position.needsUpdate = true;
 
             renderer.render(scene, camera);
         }
 
-        // --- 4. MEDIAPIPE (Руки) ---
+        // --- 4. MEDIAPIPE ---
         async function initMediaPipe() {
-            const videoElement = document.getElementById('webcam-preview');
-            const statusBar = document.getElementById('status-bar');
+            const vid = document.getElementById('webcam-preview');
+            const bar = document.getElementById('status-bar');
 
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            
-            hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
+            hands.setOptions({maxNumHands: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
 
             hands.onResults((results) => {
                 if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                     TARGET.detected = true;
-                    statusBar.classList.add('active');
-                    statusBar.innerText = "РУКА ОБНАРУЖЕНА";
+                    // ОБНОВЛЕНИЕ СТАТУСА
+                    bar.innerText = "РУКА ЗАХВАЧЕНА";
+                    bar.classList.add('detected');
 
                     const lm = results.multiHandLandmarks[0];
-
-                    // 1. Zoom (Щипок)
-                    // Расстояние между большим(4) и указательным(8)
-                    const dist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
-                    // Инверсия: Близко(0.02) -> Scale 3.0. Далеко(0.2) -> Scale 0.5
-                    TARGET.scale = Math.max(0.5, Math.min(3.0 - (dist * 10), 3.0));
-
-                    // 2. Джойстик (Положение)
-                    // lm[9] - костяшка среднего пальца (центр ладони)
-                    // Нормализуем: 0..1 -> -1..1
-                    TARGET.x = ((lm[9].x) - 0.5) * 2;
-                    TARGET.y = ((lm[9].y) - 0.5) * 2;
-
-                    // 3. Наклон
-                    // Угол между запястьем(0) и средним(9)
-                    const dx = lm[9].x - lm[0].x;
-                    const dy = lm[9].y - lm[0].y;
-                    TARGET.tilt = Math.atan2(dy, dx) + Math.PI/2;
-
+                    const dist = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
+                    TARGET.scale = Math.max(0.5, Math.min(3.0 - (dist*10), 3.0));
+                    TARGET.x = ((lm[9].x)-0.5)*2;
+                    TARGET.y = ((lm[9].y)-0.5)*2;
+                    TARGET.tilt = Math.atan2(lm[9].y-lm[0].y, lm[9].x-lm[0].x) + Math.PI/2;
                 } else {
                     TARGET.detected = false;
-                    statusBar.classList.remove('active');
-                    statusBar.innerText = "ПОКАЖИТЕ РУКУ";
+                    // СБРОС СТАТУСА
+                    bar.innerText = "ПОКАЖИТЕ РУКУ";
+                    bar.classList.remove('detected');
                 }
             });
 
-            const camera = new Camera(videoElement, {
-                onFrame: async () => { await hands.send({image: videoElement}); },
+            const cam = new Camera(vid, {
+                onFrame: async () => { await hands.send({image: vid}); },
                 width: 320, height: 240
             });
-
-            return camera.start();
+            return cam.start();
         }
 
-        // --- 5. ФОРМЫ И УТИЛИТЫ ---
+        // --- UTILS ---
         window.setShape = function(s) {
             for(let i=0; i<CONFIG.particleCount; i++) {
                 let x,y,z, r1=Math.random(), r2=Math.random();
-                
                 if(s==='sphere'){
                     const t=r1*6.28, p=Math.acos(2*r2-1), r=3.5;
                     x=r*Math.sin(p)*Math.cos(t); y=r*Math.sin(p)*Math.sin(t); z=r*Math.cos(p);
                 } else if(s==='heart'){
                     const t=r1*6.28, p=r2*3.14;
-                    x=16*Math.pow(Math.sin(t),3); 
-                    y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
-                    z=5*Math.cos(p)*Math.sin(t);
-                    x*=0.18; y*=0.18; z*=0.18;
+                    x=16*Math.pow(Math.sin(t),3); y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
+                    z=5*Math.cos(p)*Math.sin(t); x*=0.18; y*=0.18; z*=0.18;
                 } else if(s==='saturn') {
-                    const ang=r1*6.28, dist=i<CONFIG.particleCount*0.7 ? 2.8 : 4+r2*3;
-                    if(i<CONFIG.particleCount*0.7) {
-                        const ph=Math.acos(2*r2-1);
-                        x=dist*Math.sin(ph)*Math.cos(ang); y=dist*Math.sin(ph)*Math.sin(ang); z=dist*Math.cos(ph);
-                    } else { x=Math.cos(ang)*dist; y=(r1-0.5)*0.3; z=Math.sin(ang)*dist; }
+                    const ang=r1*6.28, dist=i<CONFIG.particleCount*0.7?2.8:4+r2*3;
+                    if(i<CONFIG.particleCount*0.7){const ph=Math.acos(2*r2-1); x=dist*Math.sin(ph)*Math.cos(ang);y=dist*Math.sin(ph)*Math.sin(ang);z=dist*Math.cos(ph);}
+                    else{x=Math.cos(ang)*dist;y=(r1-0.5)*0.3;z=Math.sin(ang)*dist;}
                 } else { // DNA
-                     const ang = (r1 * 3 * 6.28) + (i%2 * 3.14);
-                     x=Math.cos(ang)*2 + (r2-0.5); y=(r1-0.5)*10; z=Math.sin(ang)*2 + (r2-0.5);
+                     const ang=(r1*3*6.28)+(i%2*3.14); x=Math.cos(ang)*2+(r2-0.5); y=(r1-0.5)*10; z=Math.sin(ang)*2+(r2-0.5);
                 }
                 targetPositions[i*3]=x; targetPositions[i*3+1]=y; targetPositions[i*3+2]=z;
             }
-            // UI Update
             document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
             if(event) event.target.classList.add('active');
         };
 
-        document.getElementById('colorPicker').addEventListener('input', (e) => {
-            STATE.baseColor.set(e.target.value);
-        });
-
+        document.getElementById('colorPicker').addEventListener('input', (e) => STATE.baseColor.set(e.target.value));
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth/window.innerHeight;
             camera.updateProjectionMatrix();
